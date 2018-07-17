@@ -47,11 +47,11 @@ model.add(LSTM(256, input_shape=(procIn.shape[1], procIn.shape[2]), return_seque
 model.add(Dropout(0.2))
 model.add(LSTM(256))
 model.add(Dropout(0.2))
-model.add(Dense(procOut.shape[1], activation='softmax'))
+model.add(Dense(procOut.shape[1], activation='relu'))
 print('Model prepared.')
 
-wfiles = glob.glob('weightsv2-*-*-*.hdf5')
-rx = re.compile('weightsv2-(\\d+)-\\d+-([\\d.]+).hdf5')
+wfiles = glob.glob('weights-relu-*-*-*.hdf5')
+rx = re.compile('weights-relu-(\\d+)-\\d+-([\\d.]+).hdf5')
 max_num = 0
 if wfiles:
     best = (50., wfiles[0])
@@ -65,29 +65,17 @@ if wfiles:
 
 model.compile(loss='categorical_crossentropy', optimizer='adam')
 
-filepath='weightsv2-' + '{:02}'.format(max_num+1) + '-{epoch:02d}-{loss:.4f}.hdf5'
+filepath='weights-relu-' + '{:02}'.format(max_num+1) + '-{epoch:02d}-{loss:.4f}.hdf5'
 checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
 callbacks_list=[checkpoint]
 
 def pick_ind(arr, k=3):
-    inds = np.argsort(arr)[::-1]
-    vals = []
-    for i in inds[:k]:
-        vals.append(arr[i])
-    if min(vals) < 0:
-        m = abs(min(vals) * 2)
-        vals = list(map(lambda a: a + m))
-    tot = sum(vals)
-    r = np.random.random() * tot
-    total = 0
-    for i, v in zip(inds, vals):
-        total += v
-        if r <= total:
-            return i
+    arr /= np.sum(arr)
+    return np.random.choice(range(len(arr)), p=arr)
 
 # Let's have 20 epochs, and create a sample after each
 for ep in range(20):
-    #model.fit(procIn, procOut, epochs=ep, batch_size=128, callbacks=callbacks_list, initial_epoch=(ep-1))
+    model.fit(procIn, procOut, epochs=ep, batch_size=128, callbacks=callbacks_list, initial_epoch=(ep-1))
 
     start = np.random.randint(0, len(dataIn)-1)
     pattern = dataIn[start]
