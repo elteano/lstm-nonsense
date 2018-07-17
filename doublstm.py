@@ -16,7 +16,10 @@ with open('countmonte.txt') as f:
     raw_text = f.read().lower()
 
 print('Processing file.')
-char_to_int = {c : i for i, c in enumerate(set(raw_text))}
+chars = sorted(list(set(raw_text)))
+print(chars)
+char_to_int = {c : i for i, c in enumerate(chars)}
+int_to_char = {i : c for i, c in enumerate(chars)}
 
 n_chars = len(raw_text)
 
@@ -51,14 +54,14 @@ wfiles = glob.glob('weightsv2-*-*-*.hdf5')
 rx = re.compile('weightsv2-(\\d+)-\\d+-([\\d.]+).hdf5')
 max_num = 0
 if wfiles:
-    min = (50., wfiles[0])
+    best = (50., wfiles[0])
     for mch, name in [(rx.fullmatch(fname), fname) for fname in wfiles]:
         max_num = max(int(mch.group(1)), max_num)
         val = float(mch.group(2))
-        if val < min[0]:
-            min = (val, name)
-    print('Loading weightsv2 from {:}'.format(min[1]))
-    model.load_weightsv2(min[1])
+        if val < best[0]:
+            best = (val, name)
+    print('Loading weights from {:}'.format(best[1]))
+    model.load_weights(best[1])
 
 model.compile(loss='categorical_crossentropy', optimizer='adam')
 
@@ -66,4 +69,41 @@ filepath='weightsv2-' + '{:02}'.format(max_num+1) + '-{epoch:02d}-{loss:.4f}.hdf
 checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
 callbacks_list=[checkpoint]
 
-model.fit(procIn, procOut, epochs=20, batch_size=128, callbacks=callbacks_list)
+def pick_ind(arr, k=3):
+    inds = np.argsort(arr)[::-1]
+    vals = []
+    for i in inds[:k]:
+        vals.append(arr[i])
+    if min(vals) < 0:
+        m = abs(min(vals) * 2)
+        vals = list(map(lambda a: a + m))
+    tot = sum(vals)
+    r = np.random.random() * tot
+    total = 0
+    for i, v in zip(inds, vals):
+        total += v
+        if r <= total:
+            return i
+
+# Let's have 20 epochs, and create a sample after each
+for ep in range(20):
+    #model.fit(procIn, procOut, epochs=ep, batch_size=128, callbacks=callbacks_list, initial_epoch=(ep-1))
+
+    start = np.random.randint(0, len(dataIn)-1)
+    pattern = dataIn[start]
+    print('Seed: {:}'.format(''.join([int_to_char[v] for v in pattern])))
+    print('Generated:')
+    for i in range(1000):
+        x = np.reshape(pattern, (1, len(pattern), 1))
+        x = x / float(len(char_to_int))
+        prediction = model.predict(x, verbose=0)
+        #ind = np.argmax(prediction)
+        ind = pick_ind(prediction[0])
+        result = int_to_char[ind]
+        seq_in = [int_to_char[v] for v in pattern]
+        print(result, end='', flush=True)
+        pattern.append(ind)
+        pattern = pattern[1:len(pattern)]
+
+    print()
+    print('Done')
