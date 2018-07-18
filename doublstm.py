@@ -6,13 +6,14 @@ from keras.utils import np_utils
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import Dropout
+from keras.layers import Lambda
 from keras.layers import Dropout
 from keras.layers import LSTM
 from keras.callbacks import ModelCheckpoint
 
 raw_text = ''
 print('Reading file.')
-with open('countmonte.txt') as f:
+with open('countmonte.txt', encoding='utf8') as f:
     raw_text = f.read().lower()
 
 print('Processing file.')
